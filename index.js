@@ -134,8 +134,32 @@ bot.onText(/\/admin (.+)/, async (msg, match) => {
       '💡 Commands:\n' +
       '/admin edge 0.05\n' +
       '/admin stats\n' +
-      '/admin user <UID>'
+      '/admin user <UID>\n' +
+      '/admin help'
     ).catch(()=>{});
+  }
+});
+
+// /check – проверить чек (для админа)
+bot.onText(/\/check (.+)/, async (msg, match) => {
+  if (!CRYPTO_TOKEN) return bot.sendMessage(msg.from.id, '💢 Crypto token not set');
+  
+  try {
+    const {data} = await axios.get('https://pay.crypt.bot/api/getChecks', {
+      params: {check_ids: match[1]},
+      headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
+    });
+    
+    const check = data.result.items[0];
+    if (!check) return bot.sendMessage(msg.from.id, '❌ Check not found');
+    
+    bot.sendMessage(msg.from.id, 
+      `📋 Check ${match[1]}:\n` +
+      `Amount: ${check.amount} ${check.asset}\n` +
+      `Status: ${check.status}`
+    ).catch(()=>{});
+  } catch (e) {
+    bot.sendMessage(msg.from.id, `❌ Error: ${e.message}`).catch(()=>{});
   }
 });
 
