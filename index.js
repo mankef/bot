@@ -50,7 +50,7 @@ bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
   }
 });
 
-// /bonus
+// /bonus (0.20 USDT, раз в 24ч)
 bot.onText(/\/bonus/, async msg => {
   const uid = msg.from.id;
   if (!CRYPTO_TOKEN || !SERVER_URL) return bot.sendMessage(uid, '💢 Bonus disabled');
@@ -80,25 +80,62 @@ bot.onText(/\/bonus/, async msg => {
   }
 });
 
-// /admin – установка шансов (только для админа)
+// /admin – управление
 bot.onText(/\/admin (.+)/, async (msg, match) => {
   if (msg.from.id !== ADMIN_ID) return bot.sendMessage(msg.from.id, '❌ No access');
   
   const [cmd, value] = match[1].split(' ');
+  
   if (cmd === 'edge') {
     const edge = parseFloat(value);
-    if (edge < 0 || edge > 0.5) return bot.sendMessage(ADMIN_ID, '💢 Edge must be 0-0.5');
+    if (isNaN(edge) || edge < 0 || edge > 0.3) {
+      return bot.sendMessage(ADMIN_ID, '💢 Edge must be 0-0.3');
+    }
     
     try {
       await axios.post(`${SERVER_URL}/admin/set-edge`, {edge}, {
         headers: {'x-admin-secret': BOT_TOKEN}
       });
-      bot.sendMessage(ADMIN_ID, `✅ House edge set to ${edge}`).catch(()=>{});
+      bot.sendMessage(ADMIN_ID, `✅ House edge set to ${(edge * 100).toFixed(1)}%`).catch(()=>{});
     } catch (e) {
       bot.sendMessage(ADMIN_ID, `❌ Error: ${e.message}`).catch(()=>{});
     }
+  } else if (cmd === 'stats') {
+    try {
+      const {data} = await axios.get(`${SERVER_URL}/admin/stats`, {
+        headers: {'x-admin-secret': BOT_TOKEN}
+      });
+      bot.sendMessage(ADMIN_ID, 
+        `📊 Stats:\n` +
+        `Users: ${data.totalUsers}\n` +
+        `Deposited: ${data.totalDeposited.toFixed(2)} USDT\n` +
+        `Top refs: ${data.topReferrers.map(u => `${u.uid}: ${u.refEarn.toFixed(2)}`).join('\n')}`
+      ).catch(()=>{});
+    } catch (e) {
+      bot.sendMessage(ADMIN_ID, `❌ Error: ${e.message}`).catch(()=>{});
+    }
+  } else if (cmd === 'user') {
+    const uid = parseInt(value);
+    try {
+      const {data} = await axios.get(`${SERVER_URL}/admin/user/${uid}`, {
+        headers: {'x-admin-secret': BOT_TOKEN}
+      });
+      bot.sendMessage(ADMIN_ID, 
+        `👤 User ${uid}:\n` +
+        `Balance: ${data.balance.toFixed(2)} USDT\n` +
+        `Ref Earn: ${data.refEarn.toFixed(2)} USDT\n` +
+        `Deposited: ${data.totalDeposited.toFixed(2)} USDT`
+      ).catch(()=>{});
+    } catch (e) {
+      bot.sendMessage(ADMIN_ID, `❌ User not found`).catch(()=>{});
+    }
   } else {
-    bot.sendMessage(ADMIN_ID, '💢 Usage: /admin edge 0.05').catch(()=>{});
+    bot.sendMessage(ADMIN_ID, 
+      '💡 Commands:\n' +
+      '/admin edge 0.05\n' +
+      '/admin stats\n' +
+      '/admin user <UID>'
+    ).catch(()=>{});
   }
 });
 
