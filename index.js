@@ -3,9 +3,12 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const MINIAPP_URL = process.env.MINIAPP_URL;
-const SERVER_URL = process.env.SERVER_URL;
-const CRYPTO_TOKEN = process.env.CRYPTO_TOKEN;
+const MINIAPP_URL = process.env.MINIAPP_URL || '';
+const SERVER_URL = process.env.SERVER_URL || '';
+const CRYPTO_TOKEN = process.env.CRYPTO_TOKEN || '';
+const ADMIN_ID = parseInt(process.env.ADMIN_ID || '0');
+
+console.log('[BOT] Starting...');
 
 if (!BOT_TOKEN) {
   console.error('FATAL: BOT_TOKEN not set');
@@ -15,8 +18,6 @@ if (!BOT_TOKEN) {
 const bot = new TelegramBot(BOT_TOKEN, {
   polling: { interval: 300, params: { timeout: 10 } }
 });
-
-console.log('[BOT] Starting...');
 
 // /start
 bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
@@ -79,62 +80,27 @@ bot.onText(/\/bonus/, async msg => {
   }
 });
 
-// /checkpayment – ручная проверка
-bot.onText(/\/checkpayment (.+)/, async (msg, match) => {
-  const uid = msg.from.id;
-  const invId = match[1];
-  if (!CRYPTO_TOKEN) return bot.sendMessage(uid, '💢 Payment disabled');
-
-  try {
-    console.log(`[BOT] Manual check: ${invId}`);
+// /admin – установка шансов (только для админа)
+bot.onText(/\/admin (.+)/, async (msg, match) => {
+  if (msg.from.id !== ADMIN_ID) return bot.sendMessage(msg.from.id, '❌ No access');
+  
+  const [cmd, value] = match[1].split(' ');
+  if (cmd === 'edge') {
+    const edge = parseFloat(value);
+    if (edge < 0 || edge > 0.5) return bot.sendMessage(ADMIN_ID, '💢 Edge must be 0-0.5');
     
-    // Получаем статус инвойса
-    const {data} = await axios.get('https://pay.crypt.bot/api/getInvoices', {
-      params: {invoice_ids: invId},
-      headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
-    });
-    
-    console.log('[BOT] Invoice status:', data.result.items[0]?.status);
-    
-    const inv = data.result.items[0];
-    if (inv?.status === 'paid') {
-      // Отправляем вебхук на сервер
-      await axios.post(`${SERVER_URL}/webhook`, {
-        update: {type: 'invoice_paid', payload: {invoice_id: invId}}
-      }, {headers: {'Content-Type':'application/json'}})
-      .catch(e => console.log(`[BOT] Manual webhook fail: ${e.message}`));
-      
-      bot.sendMessage(uid, `✅ Invoice ${invId} paid. Processing...`).catch(()=>{});
-    } else {
-      bot.sendMessage(uid, `❌ Invoice ${invId} not paid. Status: ${inv?.status||'unknown'}`).catch(()=>{});
+    try {
+      await axios.post(`${SERVER_URL}/admin/set-edge`, {edge}, {
+        headers: {'x-admin-secret': BOT_TOKEN}
+      });
+      bot.sendMessage(ADMIN_ID, `✅ House edge set to ${edge}`).catch(()=>{});
+    } catch (e) {
+      bot.sendMessage(ADMIN_ID, `❌ Error: ${e.message}`).catch(()=>{});
     }
-  } catch (e) {
-    console.error(`[BOT] /checkpayment error: ${e.message}`);
-    bot.sendMessage(uid, '❌ Check failed').catch(()=>{});
+  } else {
+    bot.sendMessage(ADMIN_ID, '💢 Usage: /admin edge 0.05').catch(()=>{});
   }
 });
-
-// Проверка статуса каждые 5 секунд (фолбэк)
-setInterval(async () => {
-  if (!CRYPTO_TOKEN || !SERVER_URL) return;
-  
-  try {
-    const {data} = await axios.get('https://pay.crypt.bot/api/getInvoices', {
-      params: {status: 'active'},
-      headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
-    });
-    
-    for (const inv of data.result.items) {
-      if (inv.status === 'paid') {
-        await axios.post(`${SERVER_URL}/webhook`, {
-          update: {type: 'invoice_paid', payload: {invoice_id: inv.invoice_id}}
-        }).catch(()=>{});
-      }
-    }
-  } catch (e) {
-    console.log('[BOT] Fallback check error:', e.message);
-  }
-}, 5000);
 
 bot.on('polling_error', e => console.error('[BOT] Polling error:', e.message));
 console.log('[BOT] Running');
