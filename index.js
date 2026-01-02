@@ -8,7 +8,10 @@ const SERVER_URL = process.env.SERVER_URL;
 bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
   const uid = msg.from.id;
   const refCode = match[1] ? parseInt(match[1]) : null;
-  await axios.post(`${SERVER_URL}/play`, {uid, bet: 0, side: 'heads', refCode}).catch(() => {});
+  
+  // Регистрация с рефералом
+  await axios.post(`${SERVER_URL}/user/register`, {uid, refCode}).catch(() => {});
+  
   const opts = {
     reply_markup: {
       inline_keyboard: [[
@@ -16,7 +19,7 @@ bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
       ]]
     }
   };
-  bot.sendMessage(uid, '🎩 Welcome to OldMoney Casino.\nNothing extra. Bet – Win – Cash out.', opts);
+  bot.sendMessage(uid, '🎩 Welcome to OldMoney Casino.\nBet – Win – Cash out.', opts);
 });
 
 require('./bonus')(bot, axios);
