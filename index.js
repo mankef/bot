@@ -8,8 +8,6 @@ const SERVER_URL = process.env.SERVER_URL;
 bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
   const uid = msg.from.id;
   const refCode = match[1] ? parseInt(match[1]) : null;
-  
-  // Регистрация с рефералом
   await axios.post(`${SERVER_URL}/user/register`, {uid, refCode}).catch(() => {});
   
   const opts = {
