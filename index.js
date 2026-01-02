@@ -24,7 +24,6 @@ bot.onText(/\/start(?:\s+(\w+))?/, async (msg, match) => {
   const refCode = match[1] ? parseInt(match[1]) : null;
 
   try {
-    // Регистрация на сервере
     if (SERVER_URL) {
       await axios.post(`${SERVER_URL}/user/register`, {uid, refCode}, {timeout: 5000})
         .catch(e => console.log(`[BOT] Reg failed: ${e.message}`));
@@ -80,21 +79,26 @@ bot.onText(/\/bonus/, async msg => {
   }
 });
 
-// /checkpayment (ручная проверка)
+// /checkpayment – ручная проверка
 bot.onText(/\/checkpayment (.+)/, async (msg, match) => {
   const uid = msg.from.id;
   const invId = match[1];
   if (!CRYPTO_TOKEN) return bot.sendMessage(uid, '💢 Payment disabled');
 
   try {
+    console.log(`[BOT] Manual check: ${invId}`);
+    
+    // Получаем статус инвойса
     const {data} = await axios.get('https://pay.crypt.bot/api/getInvoices', {
       params: {invoice_ids: invId},
       headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
     });
     
+    console.log('[BOT] Invoice status:', data.result.items[0]?.status);
+    
     const inv = data.result.items[0];
     if (inv?.status === 'paid') {
-      // Триггерим вебхук вручную
+      // Отправляем вебхук на сервер
       await axios.post(`${SERVER_URL}/webhook`, {
         update: {type: 'invoice_paid', payload: {invoice_id: invId}}
       }, {headers: {'Content-Type':'application/json'}})
@@ -109,6 +113,28 @@ bot.onText(/\/checkpayment (.+)/, async (msg, match) => {
     bot.sendMessage(uid, '❌ Check failed').catch(()=>{});
   }
 });
+
+// Проверка статуса каждые 5 секунд (фолбэк)
+setInterval(async () => {
+  if (!CRYPTO_TOKEN || !SERVER_URL) return;
+  
+  try {
+    const {data} = await axios.get('https://pay.crypt.bot/api/getInvoices', {
+      params: {status: 'active'},
+      headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
+    });
+    
+    for (const inv of data.result.items) {
+      if (inv.status === 'paid') {
+        await axios.post(`${SERVER_URL}/webhook`, {
+          update: {type: 'invoice_paid', payload: {invoice_id: inv.invoice_id}}
+        }).catch(()=>{});
+      }
+    }
+  } catch (e) {
+    console.log('[BOT] Fallback check error:', e.message);
+  }
+}, 5000);
 
 bot.on('polling_error', e => console.error('[BOT] Polling error:', e.message));
 console.log('[BOT] Running');
