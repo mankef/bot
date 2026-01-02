@@ -17,7 +17,6 @@ module.exports = (bot, axios) => {
       user_id: uid, asset: 'USDT', amount: String(BONUS), spend_id
     }, {headers: {'Crypto-Pay-API-Token': process.env.CRYPTO_TOKEN}});
     
-    await axios.post(`${process.env.SERVER_URL}/bonus`, {uid, now});
     bot.sendMessage(uid, `🎁 ${BONUS} USDT credited.`);
   });
 };
