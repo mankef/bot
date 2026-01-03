@@ -124,12 +124,13 @@ bot.onText(/\/admin (.+)/, async (msg, match) => {
         `👤 User ${uid}:\n` +
         `Balance: ${data.balance.toFixed(2)} USDT\n` +
         `Ref Earn: ${data.refEarn.toFixed(2)} USDT\n` +
-        `Deposited: ${data.totalDeposited.toFixed(2)} USDT`
+        `Deposited: ${data.totalDeposited.toFixed(2)} USDT\n` +
+        `Last Check: ${data.lastCheckUrl ? '✅' : '❌'}`
       ).catch(()=>{});
     } catch (e) {
       bot.sendMessage(ADMIN_ID, `❌ User not found`).catch(()=>{});
     }
-  } else {
+  } else if (cmd === 'help') {
     bot.sendMessage(ADMIN_ID, 
       '💡 Commands:\n' +
       '/admin edge 0.05\n' +
@@ -137,29 +138,27 @@ bot.onText(/\/admin (.+)/, async (msg, match) => {
       '/admin user <UID>\n' +
       '/admin help'
     ).catch(()=>{});
+  } else {
+    bot.sendMessage(ADMIN_ID, '❌ Unknown command. Use /admin help').catch(()=>{});
   }
 });
 
-// /check – проверить чек (для админа)
-bot.onText(/\/check (.+)/, async (msg, match) => {
-  if (!CRYPTO_TOKEN) return bot.sendMessage(msg.from.id, '💢 Crypto token not set');
-  
+// /getmychcek – получить свой последний чек
+bot.onText(/\/getmychcek/, async msg => {
+  const uid = msg.from.id;
   try {
-    const {data} = await axios.get('https://pay.crypt.bot/api/getChecks', {
-      params: {check_ids: match[1]},
-      headers: {'Crypto-Pay-API-Token': CRYPTO_TOKEN}
-    });
+    const {data} = await axios.get(`${SERVER_URL}/user/${uid}`, {timeout: 5000});
+    if (!data.lastCheckUrl) {
+      return bot.sendMessage(uid, '❌ No checks found. Create one first.');
+    }
     
-    const check = data.result.items[0];
-    if (!check) return bot.sendMessage(msg.from.id, '❌ Check not found');
-    
-    bot.sendMessage(msg.from.id, 
-      `📋 Check ${match[1]}:\n` +
-      `Amount: ${check.amount} ${check.asset}\n` +
-      `Status: ${check.status}`
-    ).catch(()=>{});
+    bot.sendMessage(uid, `📋 Your check:\n${data.lastCheckUrl}`, {
+      reply_markup: {
+        inline_keyboard: [[{text: '📤 Open Check', url: data.lastCheckUrl}]]
+      }
+    }).catch(()=>{});
   } catch (e) {
-    bot.sendMessage(msg.from.id, `❌ Error: ${e.message}`).catch(()=>{});
+    bot.sendMessage(uid, '❌ Error').catch(()=>{});
   }
 });
 
