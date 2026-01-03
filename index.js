@@ -3,11 +3,11 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 // Configuration
-const BOT_TOKEN = process.env.BOT_TOKEN || 'YOUR_BOT_TOKEN';
-const MINIAPP_URL = process.env.MINIAPP_URL || 'https://your-miniapp.vercel.app';
+const BOT_TOKEN = process.env.BOT_TOKEN || '7368962343:AAGWmcvczpA_LJ_Qb8whxsGYpzOfPc4gWJs';
+const MINIAPP_URL = process.env.MINIAPP_URL || 'https://miniapp-sigma-roan.vercel.app/';
 const SERVER_URL = process.env.SERVER_URL || 'https://server-production-b3d5.up.railway.app';
-const CRYPTO_TOKEN = process.env.CRYPTO_TOKEN || 'YOUR_CRYPTO_TOKEN';
-const ADMIN_ID = parseInt(process.env.ADMIN_ID || '123456789');
+const CRYPTO_TOKEN = process.env.CRYPTO_TOKEN || '369197:AAC06ytgeDacntgpQNfOs3b7LomyOknLG3N';
+const ADMIN_ID = parseInt(process.env.ADMIN_ID || '7505000952');
 
 // Validate configuration
 if (!BOT_TOKEN || BOT_TOKEN.length < 40) {
@@ -448,3 +448,4 @@ bot.on('error', (error) => {
 });
 
 console.log('[SPIND BET] Bot is running successfully! 🌸');
+
